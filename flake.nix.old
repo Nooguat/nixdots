@@ -1,0 +1,65 @@
+{
+  description = "System Config";
+
+  inputs = {
+	nixpkgs.url = "nixpkgs/nixos-unstable";
+	flake-utils = {
+    		url = "github:numtide/flake-utils";
+	};
+	nurpkgs = {
+    		url = "github:nix-community/NUR";
+	};
+	home-manager = {
+    		url = "github:nix-community/home-manager";
+    		inputs.nixpkgs.follows = "nixpkgs";
+	};
+  };
+  outputs = {
+      self
+      , nixpkgs
+      , home-manager
+      , nurpkgs
+      , ...
+  } @ inputs:
+  let
+      username = "rev";
+      hostname = "nixrev";
+      system = "x86_64-linux";
+      pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+         # overlays = [ nurpkgs.overlays ];
+      };
+      nur = import nurpkgs {
+	  inherit pkgs;
+	  nurpkgs = pkgs;
+      };
+      lib = nixpkgs.lib;
+      in {
+      nixosConfigurations = {
+	  ${username} = lib.nixosSystem {
+    	    inherit system;
+    	    modules = [
+		./system/configuration.nix
+    	    ];
+	  };
+      };
+      defaultPackage.x86_64-linux = home-manager.defaultPackage.${system};
+      homeConfigurations = {
+	rev = home-manager.lib.homeManagerConfiguration {
+		pkgs = nixpkgs.legacyPackages.${system};
+        	modules  = [ ./users/${username}/home.nix
+		({
+		 nixpkgs.overlays = [];
+		 home = {
+			inherit username;
+			homeDirectory = "/home/${username}";
+			stateVersion = "22.05";
+		 };
+		})
+        	];
+	};
+      };
+  };
+
+}
